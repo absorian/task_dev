@@ -13,3 +13,7 @@ cat /proc/devices
 # see kernel log
 sudo dmesg
 
+# create device file with according major and minor nrs
+# no need if module makes it dynamically
+sudo mknod /dev/$DEVNAME $DEVTYPE $MAJOR $MINOR
+
