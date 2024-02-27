@@ -1,0 +1,14 @@
+*.o
+*.ko
+*.mod
+*.symvers
+*.order
+
+*.o.*
+*.ko.*
+*.mod.*
+*.symvers.*
+*.order.*
+
+*.run
+
