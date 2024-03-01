@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/printk.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
@@ -12,6 +13,11 @@ MODULE_LICENSE("GPL v2");
 
 #define TDEV_NAME "task_dev"
 #define TDEV_CLASS_NAME "task_devClass"
+
+static unsigned long long rb_size = 256;
+
+module_param(rb_size, ullong, 0);
+MODULE_PARM_DESC(rb_size, "The size of ringbuffer");
 
 
 #define TLOG_PREF TDEV_NAME ": "
@@ -50,7 +56,7 @@ static struct file_operations tfops = {
     .open = tdev_open,
     .release = tdev_release,
     .read = tdev_read,
-    .write = tdev_write
+    .write = tdev_write,
 };
 
 static char* tdev_devnode(const struct device *dev, umode_t *mode) {
@@ -62,7 +68,7 @@ static char* tdev_devnode(const struct device *dev, umode_t *mode) {
 }
 
 static int __init mod_init(void) {
-    trb = tringbuffer_init(24);
+    trb = tringbuffer_init(rb_size);
     if (trb.capacity == 0) {
         pr_err(TLOG_PREF "Ringbuffer failed to init\n");
         return -1;
