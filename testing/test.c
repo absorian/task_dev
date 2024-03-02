@@ -1,31 +1,65 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+
+#include "../task_dev.h"
+
+static void print_date_ns(uint64_t ns) {
+    time_t sec = ns / 1e9L;
+    char* tm = ctime(&sec);
+    tm[strlen(tm) - 1] = '\0'; // rm '\n'
+    printf("%s", tm);
+}
 
 
-int main() {
+int main(int argc, char **argv) {
+    if (argv[1] == NULL) return -1;
+    int cmd = atoi(argv[1]);
+    if (!cmd) return -1;
+    
     int fd = open("/dev/task_dev", O_RDWR);
     if (fd == -1) {
         printf("Error while opening\n");
         return -1;
     }
-    char buf[256];
-    char rbuf[256];
-
-    scanf("%[^\n]", buf);
-    getc(stdin);
-    
-    int res = write(fd, buf, strlen(buf) + 1);
-    printf("Write res: %d\n", res);
-
-    printf("Continue?\n");
-    char e = getc(stdin);
-    if (e != 'y') return 0;
-
-    res = read(fd, rbuf, 256);
-    printf("Read res: %d\n", res);
-    printf("Message: %s\n", rbuf);
+ 
+    switch (cmd) {
+    case 1: {
+        char buf[256];
+        scanf("%[^\n]", buf);
+        int res = write(fd, buf, strlen(buf) + 1);
+        printf("Write res: %d\n", res);
+        break;
+    }
+    case 2: {
+        char buf[256];
+        int res = read(fd, buf, 256);
+        printf("Read res: %d\n", res);
+        printf("Message: %s\n", buf);
+        break;
+    }
+    case 3: {
+        struct tdev_ioc_info info;
+        if (ioctl(fd, TDEV_IOC_GETINFO, &info) < 0) {
+            printf("Error while calling ioctl\n");
+        } else {
+            printf("Last write: ");
+            print_date_ns(info.last_write.timestamp);
+            printf(" from pid: %d, uid: %u\n", info.last_write.pid, info.last_write.uid);
+            printf("Last read: ");
+            print_date_ns(info.last_read.timestamp);
+            printf(" from pid: %d, uid: %u\n", info.last_read.pid, info.last_read.uid);
+        }
+    }
+    default:
+        break;
+    }
     close(fd);
     return 0;
 }
