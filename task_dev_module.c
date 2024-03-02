@@ -71,18 +71,13 @@ static ssize_t tdev_read(struct file *file, char __user *buf, size_t bytes, loff
 static ssize_t tdev_write(struct file *file, const char __user *buf, size_t bytes, loff_t *offset) {
     pr_info(TLOG_PREF "Device write was called, bytes: %lu, offt: %lld\n", bytes, *offset);
 
-    // unsigned long rl_flags;
-    // read_lock_irqsave(&file->f_owner.lock, rl_flags);
-    // tdev_info.last_write.pid = file->f_owner.pid;
-    // tdev_info.last_write.uid = file->f_owner.uid;
-	// read_unlock_irqrestore(&file->f_owner.lock, rl_flags);
-    
     tdev_info.last_write.pid = task_pid_nr(current);
     tdev_info.last_write.uid = current_uid().val;
     tdev_info.last_write.timestamp = ktime_get_real_ns();
 
     size_t wr = tringbuffer_write(&trb, buf, bytes);
-    if (wr < bytes) return -ENOSPC; // TODO: check beforehand and do not write (semantics still under discussion)
+    if (bytes && !wr) return -ENOSPC;
+
     return wr;
 }
 
