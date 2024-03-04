@@ -29,7 +29,7 @@ MODULE_PARM_DESC(rb_size, "The size of ringbuffer");
 
 #define TLOG_PREF TDEV_NAME ": "
 
-struct tdev_private_data {
+struct tdev_fd_data {
     spinlock_t lock;
     bool nonblock;
 };
@@ -50,7 +50,7 @@ static spinlock_t tdev_info_lock;
 
 static long tdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     void* __user argp = (void* __user)arg;
-    struct tdev_private_data* dat = file->private_data;
+    struct tdev_fd_data* dat = file->private_data;
 
     switch(cmd) {
     case TDEV_IOC_GETINFO:
@@ -82,10 +82,10 @@ static long tdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 static int tdev_open(struct inode *inode, struct file *file) {
     pr_info(TLOG_PREF "Device open was called\n");
 
-    file->private_data = kmalloc(sizeof(struct tdev_private_data), GFP_KERNEL);
+    file->private_data = kmalloc(sizeof(struct tdev_fd_data), GFP_KERNEL);
     if (file->private_data == NULL) return -ENOMEM;
 
-    struct tdev_private_data* dat = file->private_data;
+    struct tdev_fd_data* dat = file->private_data;
     spin_lock_init(&dat->lock);
     init_waitqueue_head(&tdev_wq);
     dat->nonblock = false;
@@ -109,7 +109,7 @@ static int tdev_open(struct inode *inode, struct file *file) {
 
 static ssize_t tdev_read(struct file *file, char __user *buf, size_t bytes, loff_t *offset) {
     pr_info(TLOG_PREF "Device read was called, bytes: %lu\n", bytes);
-    struct tdev_private_data* dat = file->private_data;
+    struct tdev_fd_data* dat = file->private_data;
 
     unsigned long inf_fl;
     spin_lock_irqsave(&tdev_info_lock, inf_fl);
@@ -125,8 +125,8 @@ static ssize_t tdev_read(struct file *file, char __user *buf, size_t bytes, loff
         return b;
     }
     
-    long readers = atomic_long_read(&tdev_write_cnt);
-    if (!readers) return 0;
+    long writers = atomic_long_read(&tdev_write_cnt);
+    if (!writers) return 0;
 
     unsigned long flags;
     spin_lock_irqsave(&dat->lock, flags);
@@ -136,10 +136,10 @@ static ssize_t tdev_read(struct file *file, char __user *buf, size_t bytes, loff
     }
     spin_unlock_irqrestore(&dat->lock, flags);
 
-    if (wait_event_interruptible(tdev_wq, !(readers = atomic_long_read(&tdev_write_cnt)) || tringbuffer_stored(trb) != 0
+    if (wait_event_interruptible(tdev_wq, !(writers = atomic_long_read(&tdev_write_cnt)) || tringbuffer_stored(trb) != 0
         ) == -ERESTARTSYS)
         return 0;
-    if (!readers) return 0;
+    if (!writers) return 0;
 
     b = tringbuffer_read(trb, buf, bytes);
     wake_up(&tdev_wq);
@@ -148,7 +148,7 @@ static ssize_t tdev_read(struct file *file, char __user *buf, size_t bytes, loff
 
 static ssize_t tdev_write(struct file *file, const char __user *buf, size_t bytes, loff_t *offset) {
     pr_info(TLOG_PREF "Device write was called, bytes: %lu, offt: %lld\n", bytes, *offset);
-    struct tdev_private_data* dat = file->private_data;
+    struct tdev_fd_data* dat = file->private_data;
 
     unsigned long inf_fl;
     spin_lock_irqsave(&tdev_info_lock, inf_fl);
@@ -177,10 +177,10 @@ static ssize_t tdev_write(struct file *file, const char __user *buf, size_t byte
     }
     spin_unlock_irqrestore(&dat->lock, flags);
 
-    long writers = atomic_long_read(&tdev_read_cnt);
-    
+    long readers = atomic_long_read(&tdev_read_cnt);
+
     // not in 'man write(2)' but it shuts up 'bigstuff > /dev/task_dev' when empty and lonely
-    if (!writers && !b) return -ENOSPC;
+    if (!readers && !b) return -ENOSPC;
     
     size_t written = 0;
     while(1) {
@@ -189,16 +189,16 @@ static ssize_t tdev_write(struct file *file, const char __user *buf, size_t byte
         written += b;
         if (bytes == written) return bytes;
 
-        if (wait_event_interruptible(tdev_wq, !(writers = atomic_long_read(&tdev_read_cnt)) || tringbuffer_available(trb) != 0
+        if (wait_event_interruptible(tdev_wq, !(readers = atomic_long_read(&tdev_read_cnt)) || tringbuffer_available(trb) != 0
             ) == -ERESTARTSYS)
             return written;
-        if (!writers) return written;
+        if (!readers) return written;
     }
 }
 
 static int tdev_release(struct inode *inode, struct file *file) {
     pr_info(TLOG_PREF "Device release was called\n");
-    struct tdev_private_data* dat = file->private_data;
+    struct tdev_fd_data* dat = file->private_data;
 
     unsigned int acc_mode = file->f_flags & O_ACCMODE;
     if (acc_mode == O_RDONLY) {
