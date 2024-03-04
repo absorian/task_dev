@@ -39,22 +39,47 @@ int main(int argc, char **argv) {
     }
     case 2: {
         char buf[256];
+        char t;
+        scanf("%c", &t); // stop point
         int res = read(fd, buf, 256);
         printf("Read res: %d\n", res);
         printf("Message: %s\n", buf);
         break;
     }
     case 3: {
-        struct tdev_ioc_info info;
-        if (ioctl(fd, TDEV_IOC_GETINFO, &info) < 0) {
-            printf("Error while calling ioctl\n");
-        } else {
-            printf("Last write: ");
-            print_date_ns(info.last_write.timestamp);
-            printf(" from pid: %d, uid: %u\n", info.last_write.pid, info.last_write.uid);
-            printf("Last read: ");
-            print_date_ns(info.last_read.timestamp);
-            printf(" from pid: %d, uid: %u\n", info.last_read.pid, info.last_read.uid);
+        int scmd = atoi(argv[2]);
+        if (!scmd) return -1;
+        switch (scmd)
+        {
+        case 1:
+            struct tdev_ioc_info info;
+            if (ioctl(fd, TDEV_IOC_GETINFO, &info) < 0) {
+                printf("Error while calling ioctl TDEV_IOC_GETINFO\n");
+            } else {
+                printf("Last write: ");
+                print_date_ns(info.last_write.timestamp);
+                printf(" from pid: %d, uid: %u\n", info.last_write.pid, info.last_write.uid);
+                printf("Last read: ");
+                print_date_ns(info.last_read.timestamp);
+                printf(" from pid: %d, uid: %u\n", info.last_read.pid, info.last_read.uid);
+            }
+            break;
+        case 2: {
+            int on = 0;
+            if (ioctl(fd, TDEV_IOC_NONBLOCK, &on) < 0) {
+                printf("Error while calling ioctl TDEV_IOC_NONBLOCK\n");
+            }
+            break;
+        }     
+        case 3: {
+            int on = 1;
+            if (ioctl(fd, TDEV_IOC_NONBLOCK, &on) < 0) {
+                printf("Error while calling ioctl TDEV_IOC_NONBLOCK\n");
+            }
+            break;   
+        }   
+        default:
+            break;
         }
     }
     default:
