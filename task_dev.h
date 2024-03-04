@@ -16,6 +16,5 @@ struct tdev_ioc_info {
     struct tdev_acc_record last_write;
 };
 
-#define TDEV_IOC_BLOCK _IO('t', 0x92)
-#define TDEV_IOC_NONBLOCK _IO('t', 0x93)
+#define TDEV_IOC_NONBLOCK _IOW('t', 0x93, int)
 #define TDEV_IOC_GETINFO _IOR('t', 0x94, struct tdev_ioc_info)
