@@ -3,6 +3,7 @@
 
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/mutex.h>
 
 struct tringbuffer {
     void* data;
@@ -12,15 +13,19 @@ struct tringbuffer {
     size_t tail;
 
     bool is_full;
+
+    struct mutex lock;
 };
 
-struct tringbuffer tringbuffer_init(size_t size);
+struct tringbuffer* tringbuffer_init(size_t size);
 
 void tringbuffer_deinit(struct tringbuffer* rb);
 
 size_t tringbuffer_available(struct tringbuffer* rb);
 
 size_t tringbuffer_stored(struct tringbuffer* rb);
+
+size_t tringbuffer_capacity(struct tringbuffer* rb);
 
 size_t tringbuffer_write(struct tringbuffer* rb, const void* data, size_t bytes);
 
