@@ -87,7 +87,6 @@ static int tdev_open(struct inode *inode, struct file *file) {
 
     struct tdev_fd_data* dat = file->private_data;
     spin_lock_init(&dat->lock);
-    init_waitqueue_head(&tdev_wq);
     dat->nonblock = false;
 
     unsigned int acc_mode = file->f_flags & O_ACCMODE;
@@ -136,7 +135,7 @@ static ssize_t tdev_read(struct file *file, char __user *buf, size_t bytes, loff
     }
     spin_unlock_irqrestore(&dat->lock, flags);
 
-    if (wait_event_interruptible(tdev_wq, !(writers = atomic_long_read(&tdev_write_cnt)) || tringbuffer_stored(trb) != 0
+    if (wait_event_interruptible(tdev_wq, tringbuffer_stored(trb) != 0 || !(writers = atomic_long_read(&tdev_write_cnt))
         ) == -ERESTARTSYS)
         return 0;
     if (!writers) return 0;
@@ -184,12 +183,12 @@ static ssize_t tdev_write(struct file *file, const char __user *buf, size_t byte
     
     size_t written = 0;
     while(1) {
-        b = tringbuffer_write(trb, buf, bytes - written);
+        b = tringbuffer_write(trb, buf + written, bytes - written);
         wake_up(&tdev_wq);
         written += b;
         if (bytes == written) return bytes;
 
-        if (wait_event_interruptible(tdev_wq, !(readers = atomic_long_read(&tdev_read_cnt)) || tringbuffer_available(trb) != 0
+        if (wait_event_interruptible(tdev_wq, tringbuffer_available(trb) != 0 || !(readers = atomic_long_read(&tdev_read_cnt))
             ) == -ERESTARTSYS)
             return written;
         if (!readers) return written;
@@ -269,6 +268,8 @@ static int __init mod_init(void) {
     
     spin_lock_init(&tdev_info_lock);
     
+    init_waitqueue_head(&tdev_wq);
+
     pr_info(TLOG_PREF "Loaded module\n");
     return 0;
 
