@@ -33,4 +33,4 @@ Include `task_dev.h` to access ioctl macros.
   struct tdev_ioc_info info;
   if (ioctl(fd, TDEV_IOC_GETINFO, &info) < 0) { /* err */ }
 ```
-Note: `tdev_ioc_info.timestamp` is counting nanosecs in UTC time.
+Note: `timestamp` is counting nanosecs in UTC time.
